@@ -1,4 +1,4 @@
-name: Ubdate VC
+name: Update VC
 
 on:
   workflow_dispatch:
@@ -16,17 +16,24 @@ jobs:
 
       - name: Clean Current Directory
         run: |
+          # Remove everything except critical git/github files
           find . -maxdepth 1 ! -name '.' ! -name '..' ! -name '.git' ! -name '.github' -exec rm -rf {} +
 
       - name: Fetch Remote Files
         run: |
-          mkdir -p assets
           BASE_URL="https://vi-ra-caisse-561480809159.europe-west2.run.app"
           
+          # 1. Download the main entry point
           curl -H "User-Agent: Mozilla/5.0" -L -o index.html "$BASE_URL/"
-          curl -H "User-Agent: Mozilla/5.0" -L -o index.css "$BASE_URL/index.css"
-          curl -H "User-Agent: Mozilla/5.0" -L -o assets/index-CUzW0L13.js "$BASE_URL/assets/index-CUzW0L13.js"
-          curl -H "User-Agent: Mozilla/5.0" -L -o _websocket-interceptor.js "$BASE_URL/_websocket-interceptor.js?v=1"
+          
+          # 2. Use wget to mirror the /assets directory
+          # -r: recursive, -np: no-parent, -nd: no-directories (flattens structure)
+          # -A: accept only these extensions to avoid junk
+          wget -r -np -nd -A "js,css,png,jpg,jpeg,gif,ico,json" -P ./assets "$BASE_URL/assets/"
+          
+          # 3. Download standalone root files that aren't in assets
+          curl -H "User-Agent: Mozilla/5.0" -L -o index.css "$BASE_URL/index.css" || true
+          curl -H "User-Agent: Mozilla/5.0" -L -o _websocket-interceptor.js "$BASE_URL/_websocket-interceptor.js?v=1" || true
           curl -H "User-Agent: Mozilla/5.0" -L -o _service-worker.js "$BASE_URL/_service-worker.js" || true
 
       - name: Push to Pipeline
@@ -34,5 +41,5 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add .
-          git commit -m "chore: sync exact assets" || echo "No changes to commit"
+          git commit -m "chore: auto-sync assets from remote" || echo "No changes to commit"
           git push
